@@ -22,7 +22,9 @@ docker run --rm --platform linux/arm64  docker-baseline-env:arm64  --smoke-test
 ## API 入口
 
 所有路由以 `/api` 前缀暴露（健康检查 `GET /api/health`、井次 `GET/POST /api/wells`、
-分层 `POST /api/wells/{id}/layer`、跨次对比 `POST /api/compare`、快照发布 `POST /api/snapshots/{id}` 等）。
+分层 `POST /api/wells/{id}/layer`、数据质量 `GET /api/wells/{id}/data-quality`、
+梯度边界 `GET /api/wells/{id}/boundaries`、跨次对比 `POST /api/compare`、
+快照发布 `POST /api/snapshots/{id}` 等）。
 
 ## 持久化
 

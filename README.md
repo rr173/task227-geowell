@@ -47,6 +47,9 @@ CGO_ENABLED=0 GOTOOLCHAIN=local go test  ./...
 | 深度校正 | POST /api/wells/{id}/correct | httpapi → service.CorrectDepth → datum |
 | 分层 | POST /api/wells/{id}/layer | httpapi → service.Layer → layer |
 | 井段列表 | GET /api/wells/{id}/segments | httpapi → store.ListSegments |
+| 数据质量摘要 | GET /api/wells/{id}/data-quality | httpapi → store.ListPoints |
+| 梯度边界 | GET /api/wells/{id}/boundaries | httpapi → store.ListSegments → compare |
+| 深度基准状态 | GET /api/wells/{id}/datum | httpapi → store.GetWellRun |
 | 井段确认 | POST /api/segments/{id}/confirm | httpapi → service.ConfirmSegment |
 | 跨次对比 | POST /api/compare | httpapi → service.CompareRuns → compare |
 | 快照列表 | GET /api/snapshots?well= | httpapi → store.ListSnapshotsByWell |

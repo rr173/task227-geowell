@@ -15,9 +15,9 @@ import (
 
 // Server holds the HTTP dependencies.
 type Server struct {
-	svc    *service.Service
-	store  *store.Store
-	addr   string
+	svc   *service.Service
+	store *store.Store
+	addr  string
 }
 
 // New builds an HTTP server bound to addr.
@@ -29,22 +29,25 @@ func New(svc *service.Service, st *store.Store, addr string) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/health", s.handleHealth)
-	mux.HandleFunc("/api/wells", s.handleWells)            // GET list, POST create
-	mux.HandleFunc("/api/wells/", s.handleWellByID)        // GET one, POST points, DELETE
-	mux.HandleFunc("/api/wells/{id}/points", s.handlePoints)       // GET points
-	mux.HandleFunc("/api/wells/{id}/correct", s.handleCorrect)     // POST depth correction
-	mux.HandleFunc("/api/wells/{id}/layer", s.handleLayer)         // POST layering
-	mux.HandleFunc("/api/wells/{id}/segments", s.handleSegments)   // GET segments
-	mux.HandleFunc("/api/wells/{id}/report", s.handleReport)        // GET text report
-	mux.HandleFunc("/api/wells/{id}/metrics", s.handleMetrics)      // GET metrics
-	mux.HandleFunc("/api/wells/{id}/export", s.handleExport)        // GET csv export
-	mux.HandleFunc("/api/wells/{id}/calibrate", s.handleCalibrate)  // POST calibration plan
-	mux.HandleFunc("/api/segments", s.handleAllSegments)            // GET all segments
+	mux.HandleFunc("/api/wells", s.handleWells)                          // GET list, POST create
+	mux.HandleFunc("/api/wells/", s.handleWellByID)                      // GET one, POST points, DELETE
+	mux.HandleFunc("/api/wells/{id}/points", s.handlePoints)             // GET points
+	mux.HandleFunc("/api/wells/{id}/correct", s.handleCorrect)           // POST depth correction
+	mux.HandleFunc("/api/wells/{id}/layer", s.handleLayer)               // POST layering
+	mux.HandleFunc("/api/wells/{id}/segments", s.handleSegments)         // GET segments
+	mux.HandleFunc("/api/wells/{id}/report", s.handleReport)             // GET text report
+	mux.HandleFunc("/api/wells/{id}/metrics", s.handleMetrics)           // GET metrics
+	mux.HandleFunc("/api/wells/{id}/data-quality", s.handleDataQuality)  // GET point quality summary
+	mux.HandleFunc("/api/wells/{id}/boundaries", s.handleBoundaries)     // GET detected boundaries
+	mux.HandleFunc("/api/wells/{id}/datum", s.handleDatum)               // GET persisted datum status
+	mux.HandleFunc("/api/wells/{id}/export", s.handleExport)             // GET csv export
+	mux.HandleFunc("/api/wells/{id}/calibrate", s.handleCalibrate)       // POST calibration plan
+	mux.HandleFunc("/api/segments", s.handleAllSegments)                 // GET all segments
 	mux.HandleFunc("/api/segments/{id}/confirm", s.handleConfirmSegment) // POST confirm
-	mux.HandleFunc("/api/compare", s.handleCompare)         // POST cross-run compare
-	mux.HandleFunc("/api/snapshots", s.handleSnapshots)     // GET list
-	mux.HandleFunc("/api/snapshots/", s.handleSnapshotByID) // GET one, POST publish
-	mux.HandleFunc("/api/stats", s.handleStats)             // GET statistics
+	mux.HandleFunc("/api/compare", s.handleCompare)                      // POST cross-run compare
+	mux.HandleFunc("/api/snapshots", s.handleSnapshots)                  // GET list
+	mux.HandleFunc("/api/snapshots/", s.handleSnapshotByID)              // GET one, POST publish
+	mux.HandleFunc("/api/stats", s.handleStats)                          // GET statistics
 	return mux
 }
 

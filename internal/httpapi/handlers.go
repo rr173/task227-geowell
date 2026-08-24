@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"task227-geowell/internal/calibrate"
+	"task227-geowell/internal/compare"
 	"task227-geowell/internal/export"
 	"task227-geowell/internal/metrics"
 	"task227-geowell/internal/model"
@@ -210,6 +211,93 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, m)
 }
 
+func (s *Server) handleDataQuality(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r.URL.Path)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid well id"})
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	if _, err := s.store.GetWellRun(id); err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		return
+	}
+	pts, err := s.store.ListPoints(id)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	counts := map[string]int{
+		"valid":          0,
+		"missing":        0,
+		"depth_conflict": 0,
+		"pending_cal":    0,
+	}
+	for _, p := range pts {
+		counts[string(p.State)]++
+	}
+	completeness := 1.0
+	if len(pts) > 0 {
+		completeness = float64(counts[string(model.PointValid)]) / float64(len(pts))
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"well_run_id":  id,
+		"point_count":  len(pts),
+		"state_counts": counts,
+		"completeness": completeness,
+	})
+}
+
+func (s *Server) handleBoundaries(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r.URL.Path)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid well id"})
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	segs, err := s.store.ListSegments(id)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	boundaries := compare.BoundariesFromSegments(segs)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"well_run_id": id,
+		"boundaries":  boundaries,
+		"count":       len(boundaries),
+	})
+}
+
+func (s *Server) handleDatum(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r.URL.Path)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid well id"})
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	run, err := s.store.GetWellRun(id)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"well_run_id": run.ID,
+		"depth_basis": run.DepthBasis,
+		"disturbance": run.Disturbance,
+		"state":       run.State,
+		"calibrated":  run.DepthBasis != 0 || run.State == model.WellRunLayered || run.State == model.WellRunArchived,
+	})
+}
+
 func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r.URL.Path)
 	if err != nil {
@@ -411,8 +499,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		byState[string(run.State)]++
 	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"well_runs": len(runs),
-		"by_state":  byState,
+		"well_runs":   len(runs),
+		"by_state":    byState,
 		"api_version": "1.0",
 	})
 }
