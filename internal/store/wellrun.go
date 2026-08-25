@@ -9,6 +9,14 @@ import (
 )
 
 // CreateWellRun inserts a new well run. code must be unique (idempotent key).
+//
+// Insertion is idempotent: concurrent callers posting the same code are all
+// resolved to the single surviving row instead of one winning and the rest
+// failing on the UNIQUE constraint. We INSERT ... ON CONFLICT(code) DO
+// NOTHING so SQLite atomically serializes the contention — the first writer
+// gets one affected row (and the new id); concurrent writers get zero rows
+// and no error, then fall back to GetWellRunByCode to observe the existing
+// run. Every caller therefore succeeds and returns the same well run.
 func (s *Store) CreateWellRun(r *model.WellRun) error {
 	r.CreatedAt = nowISO()
 	r.UpdatedAt = r.CreatedAt
@@ -17,15 +25,27 @@ func (s *Store) CreateWellRun(r *model.WellRun) error {
 	}
 	const q = `INSERT INTO well_runs
 		(code,name,well,log_date,state,archived,unit_temp,unit_press,depth_basis,disturbance,created_at,updated_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+		ON CONFLICT(code) DO NOTHING`
 	res, err := s.db.Exec(q, r.Code, r.Name, r.Well, r.LogDate, string(r.State),
 		boolToInt(r.Archived), string(r.UnitTemp), string(r.UnitPress), r.DepthBasis,
 		boolToInt(r.Disturbance), r.CreatedAt, r.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("insert well run: %w", err)
 	}
-	id, _ := res.LastInsertId()
-	r.ID = id
+	n, _ := res.RowsAffected()
+	if n == 1 {
+		id, _ := res.LastInsertId()
+		r.ID = id
+		return nil
+	}
+	// Zero rows affected: a concurrent caller already inserted this code.
+	// Resolve to the surviving run so this caller still succeeds idempotently.
+	existing, err := s.GetWellRunByCode(r.Code)
+	if err != nil {
+		return fmt.Errorf("idempotent well run lookup for code %q: %w", r.Code, err)
+	}
+	*r = *existing
 	return nil
 }
 
