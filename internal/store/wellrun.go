@@ -98,6 +98,7 @@ func scanWellRun(r rowScanner) (*model.WellRun, error) {
 	wr.UnitTemp = model.TemperatureUnit(unitT)
 	wr.UnitPress = model.PressureUnit(unitP)
 	wr.Archived = archived != 0
+	wr.Disturbance = disturbance != 0
 	wr.CreatedAt = created
 	wr.UpdatedAt = updated
 	return &wr, nil
