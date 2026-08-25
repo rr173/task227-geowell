@@ -88,6 +88,18 @@ func (s *Store) SupersedePublished(well string, exceptID int64) error {
 	return err
 }
 
+// SupersedeReviewingForRun marks every still-under-review snapshot that depends
+// on the given run (as baseline or target) as superseded. Archiving a source
+// run ends the unfinished publication those snapshots represent, so they cannot
+// remain stuck in under_review. Only under_review snapshots are touched, which
+// is the single legal transition to superseded.
+func (s *Store) SupersedeReviewingForRun(runID int64) error {
+	_, err := s.db.Exec(`UPDATE comparison_snapshots SET state=?, updated_at=?
+		WHERE state=? AND (baseline_run_id=? OR target_run_id=?)`,
+		string(model.SnapSuperseded), nowISO(), string(model.SnapUnderReview), runID, runID)
+	return err
+}
+
 // UpdateSnapshotState persists a snapshot state transition.
 func (s *Store) UpdateSnapshotState(id int64, st model.SnapshotState, detail string) error {
 	if detail == "" {

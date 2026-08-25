@@ -288,7 +288,10 @@ func (svc *Service) PublishComparison(baselineID, targetID int64) (*model.Compar
 	return svc.store.GetSnapshot(snap.ID)
 }
 
-// ArchiveRun seals a layered well run so it can no longer be mutated.
+// ArchiveRun seals a layered well run so it can no longer be mutated. Because
+// archiving a source run ends any unfinished publication it participates in,
+// every still-under-review snapshot that depends on this run (as baseline or
+// target) is moved to superseded rather than left stuck awaiting review.
 func (svc *Service) ArchiveRun(runID int64) error {
 	r, err := svc.store.GetWellRun(runID)
 	if err != nil {
@@ -297,7 +300,10 @@ func (svc *Service) ArchiveRun(runID int64) error {
 	if r.State != model.WellRunLayered {
 		return fmt.Errorf("%w: only layered runs can be archived (state=%s)", model.ErrBadTransition, r.State)
 	}
-	return svc.transitionRun(runID, model.WellRunArchived)
+	if err := svc.transitionRun(runID, model.WellRunArchived); err != nil {
+		return err
+	}
+	return svc.store.SupersedeReviewingForRun(runID)
 }
 
 // transitionRun applies a well-run state transition, persisting archived flag.
