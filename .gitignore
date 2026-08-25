@@ -1,0 +1,4 @@
+geowell.db
+geowell.db-wal
+geowell.db-shm
+*.db
