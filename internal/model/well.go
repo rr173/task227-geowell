@@ -29,12 +29,15 @@ const (
 	WellRunArchived       WellRunState = "archived"       // 已封存
 )
 
-// WellRunStateTransitions enforces the allowed forward transitions.
+// wellRunTransitions enforces the allowed transitions. Depth correction on an
+// already-layered run invalidates its profile (the corrected depths change the
+// segment boundaries), so layered may fall back to pending_layering to force a
+// fresh layering pass before the run is compared or archived again.
 var wellRunTransitions = map[WellRunState][]WellRunState{
-	WellRunCollecting:     {WellRunPendingLayering, WellRunArchived},
+	WellRunCollecting:      {WellRunPendingLayering, WellRunArchived},
 	WellRunPendingLayering: {WellRunLayered, WellRunArchived},
-	WellRunLayered:        {WellRunArchived},
-	WellRunArchived:       {},
+	WellRunLayered:         {WellRunPendingLayering, WellRunArchived},
+	WellRunArchived:        {},
 }
 
 // CanTransition reports whether moving from -> to is permitted.

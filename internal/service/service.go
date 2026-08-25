@@ -95,6 +95,11 @@ func (svc *Service) IngestPoints(runID int64, raw []ingest.RawPoint) error {
 
 // CorrectDepth computes and applies the datum correction, then persists the
 // corrected depths and disturbance flag on the run.
+//
+// Depth correction changes the run's depth axis, so any segments computed
+// against the previous datum are no longer valid. When the run has already been
+// layered, the existing segments are dropped and the run is returned to
+// pending_layering so the engineer can re-layer against the corrected profile.
 func (svc *Service) CorrectDepth(runID int64, referenceDepth float64) (*datum.Correction, error) {
 	r, err := svc.store.GetWellRun(runID)
 	if err != nil {
@@ -119,6 +124,9 @@ func (svc *Service) CorrectDepth(runID int64, referenceDepth float64) (*datum.Co
 		return nil, err
 	}
 	if err := svc.store.SetWellRunMeta(runID, c.DepthBasis, c.Disturbance); err != nil {
+		return nil, err
+	}
+	if err := svc.invalidateProfile(runID, r.State); err != nil {
 		return nil, err
 	}
 	return &c, nil
@@ -172,6 +180,9 @@ func (svc *Service) Layer(runID int64) ([]model.Segment, error) {
 // CorrectDepthPlan applies a calibration strategy (offset/tie_point/stretch)
 // using the supplied markers, then persists the corrected depths. It is an
 // alternative to CorrectDepth for runs with known calibration markers.
+//
+// Like CorrectDepth, a re-calibration invalidates any existing segments and
+// returns a layered run to pending_layering for re-layering.
 func (svc *Service) CorrectDepthPlan(runID int64, strat calibrate.Strategy, markers []calibrate.Marker) (*calibrate.Plan, error) {
 	r, err := svc.store.GetWellRun(runID)
 	if err != nil {
@@ -201,7 +212,24 @@ func (svc *Service) CorrectDepthPlan(runID int64, strat calibrate.Strategy, mark
 	if err := svc.store.SetWellRunMeta(runID, plan.Offset, r.Disturbance); err != nil {
 		return nil, err
 	}
+	if err := svc.invalidateProfile(runID, r.State); err != nil {
+		return nil, err
+	}
 	return &plan, nil
+}
+
+// invalidateProfile drops existing segments and returns a layered run to
+// pending_layering. It is a no-op for runs that are not yet layered (there is
+// nothing to invalidate); archived runs never reach here because the callers
+// reject them up front.
+func (svc *Service) invalidateProfile(runID int64, state model.WellRunState) error {
+	if state != model.WellRunLayered {
+		return nil
+	}
+	if err := svc.store.ClearSegments(runID); err != nil {
+		return err
+	}
+	return svc.transitionRun(runID, model.WellRunPendingLayering)
 }
 
 // ConfirmSegment transitions a candidate/stable/anomaly segment to confirmed.

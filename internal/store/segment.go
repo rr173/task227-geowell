@@ -33,6 +33,14 @@ func (s *Store) ReplaceSegments(runID int64, segs []model.Segment) error {
 	return tx.Commit()
 }
 
+// ClearSegments deletes all segments for a run without inserting new ones. It
+// is used to invalidate a stale profile after a depth correction changes the
+// run's profile, dropping the run back to pending_layering for re-layering.
+func (s *Store) ClearSegments(runID int64) error {
+	_, err := s.db.Exec(`DELETE FROM segments WHERE well_run_id=?`, runID)
+	return err
+}
+
 // ListSegments returns all segments for a run ordered by index.
 func (s *Store) ListSegments(runID int64) ([]model.Segment, error) {
 	rows, err := s.db.Query(`SELECT id,well_run_id,idx,top_depth,bottom_depth,temp_grad,press_grad,gradient_jump,state,confirmed,created_at
